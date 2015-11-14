@@ -671,6 +671,10 @@ def process(self, choices):
             new_action = self.enable
         elif choice.startswith('-'):
             new_action = self.disable
+        elif choice.startswith('&'):
+            new_action = self.intersection
+        elif choice.startswith('^'):
+            new_action = self.extersection
         else:
             new_action = None
             arg = choice
@@ -797,6 +801,17 @@ class FlagSelectionAction(argparse.Action):
             if check_disable:
                 self.checks[name].disabled.add(self.msg)
 
+    def intersection(self, flags):
+        self.flags.intersection_update(flags)
+        for name, check in self.checks.items():
+            if not check.__getattribute__(self.name).isdisjoint(flags):
+                self.checks[name].disabled.clear()
+
+    def extersection(self, flags):
+        self.flags.symmetric_difference_update(flags)
+        for name, check in self.checks.items():
+            if not check.__getattribute__(self.name).isdisjoint(flags):
+                self.checks[name].disabled.add(self.msg)
 
 class RangeCompleter(object):
 
