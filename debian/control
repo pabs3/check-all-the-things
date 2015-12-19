@@ -6,6 +6,7 @@ Priority: optional
 Build-Depends:
  bash-completion,
  debhelper (>= 9),
+ dose-distcheck,
  help2man,
  python3-argcomplete,
  python3,

@@ -910,6 +910,38 @@ def remark(remarks, name, reason):
     return True
 
 
+def apt_installable(checks):
+    fake_pkg_prefix = 'check-all-the-things-installability-'
+    apt_cmd = 'apt-get indextargets --format $(FILENAME)'.split() + ['Created-By: Packages']
+    cat_cmd = 'xargs --delimiter \n /usr/lib/apt/apt-helper cat-file'.split(' ')
+    dose_cmd = 'dose-debcheck --failures --bg - --fg'.split()
+    from tempfile import NamedTemporaryFile
+    import yaml
+    with NamedTemporaryFile(mode='w', encoding='UTF-8') as fg:
+        for name, check in checks.items():
+            if check.debian:
+                print('Package: ' + fake_pkg_prefix + name, file=fg)
+                print('Depends: ' + check.debian, file=fg)
+                print('Version: 0', file=fg)
+                print('Architecture: all', file=fg)
+                print(file=fg)
+        fg.flush()
+        dose_cmd.append(fg.name)
+        apt = ipc.Popen(apt_cmd, stdout=ipc.PIPE)
+        cat = ipc.Popen(cat_cmd, stdin=apt.stdout, stdout=ipc.PIPE)
+        dose = ipc.Popen(dose_cmd, stdin=cat.stdout, stdout=ipc.PIPE)
+        output = dose.communicate()
+        output = yaml.load(output[0])
+        report = output['report']
+        broken = []
+        for item in report:
+            package = item['package']
+            status = item['status']
+            if package.startswith(fake_pkg_prefix) and status == 'broken':
+                broken.append(package[len(fake_pkg_prefix):])
+        return broken
+
+
 def set_debian_substvars(checks):
     try:
         import apt_pkg
@@ -918,6 +950,7 @@ def set_debian_substvars(checks):
         sys.exit(1)
     recommends = []
     suggests = []
+    broken = apt_installable(checks)
     for name, check in checks.items():
         try:
             if check.debian:
@@ -927,7 +960,9 @@ def set_debian_substvars(checks):
         except ValueError:
             print('ERROR: Could not parse deps for {}: {}'.format(name, check.debian), file=sys.stderr)
             sys.exit(1)
-        if not check.is_flag_set('todo') and not check.is_flag_set('debian-suggests'):
+        if not check.is_flag_set('todo') and \
+           not check.is_flag_set('debian-suggests') and \
+           name not in broken:
             recommends.append(check.debian)
         else:
             suggests.append(check.debian)
