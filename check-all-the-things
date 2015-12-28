@@ -553,6 +553,7 @@ def main():
                 if name in matching_checks:
                     continue
                 if check.is_file_matching(path):
+                    print(name, 'matches', path)
                     matching_checks.add(name)
         i = 0
         for dir in dirs:
