@@ -303,8 +303,11 @@ class Check(object):
 
     def is_file_matching(self, path):
         if self._not_files_fn and self._not_files_fn(path):
+            print(self._not_files_fn.__self__)
             return False
-        return self._files_fn(path)
+        ret = self._files_fn(path)
+        print(self._files_fn.__self__, '=', ret)
+        return ret
 
     def is_dir_matching(self, path):
         return not self._not_dirs_fn(path) if self._not_dirs_fn else True
