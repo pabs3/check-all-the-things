@@ -78,4 +78,15 @@ Check if any tests contain dangerous commands:
 python -m
 python -c
 
+Switch to sphinx and sphinxcontrib-autoprogram for manual pages:
+
+sphinx and sphinxcontrib-autoprogram working to produce man pages at package build time
+Sphinx config: https://github.com/DonnchaC/onionbalance/blob/cli-doc-page/docs/conf.py
+Example document page: https://raw.githubusercontent.com/DonnchaC/onionbalance/cli-doc-page/docs/running-onionbalance.rst
+call 'sphinx-build -N -bman docs/ docs/_build/man' in `override_dh_auto_build` and add correct paths to onionbalance.manpages
+
+or python3-sphinx-argparse is available now
+
+or python3-argparse-manpage is available now
+
 .. vim:ts=3 sw=3 et ft=rst
