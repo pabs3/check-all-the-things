@@ -36,6 +36,7 @@ import time
 import subprocess as ipc
 import sys
 from textwrap import TextWrapper
+from pprint import pprint
 
 try:
     from shutil import get_terminal_size
@@ -186,6 +187,7 @@ class Check(object):
         return regexp.match
 
     def _set_match_fn(self, type, values):
+        print(values)
         type_path = type+'_path'
         type_parent = type+'_parent'
         this = self.__dict__
@@ -203,10 +205,14 @@ class Check(object):
                 this[type_path].append('*/'+value)
             elif value:
                 this[type].append(value)
+        print('normal', this[type])
+        print('path', this[type_path])
+        print('parent', this[type_parent])
         for subtype in (type, type_path, type_parent):
             if this[subtype]:
                 match_fn = self._match_to_regexp_fn(this[subtype])
                 this['_'+subtype+'_fn'] = match_fn
+                print(subtype, this[subtype], regexp)
 
     def set_files(self, value):
         self._set_match_fn('files', value)
@@ -240,6 +246,8 @@ class Check(object):
 
     def _set_fcmd_(self, fcmd, type, test):
         this = self.__dict__
+        print(fcmd, type, test)
+        pprint(this)
         if not this[type]:
             return
         elif len(this[type]) == 1:
@@ -249,6 +257,8 @@ class Check(object):
             end = len(fcmd)
             for wildcard in this[type]:
                 fcmd += ['-o', test, shlex.quote(wildcard)]
+            print(fcmd)
+            print(end)
             fcmd[end] = '\\('
             fcmd += ['\\)']
 
@@ -310,31 +320,50 @@ class Check(object):
                 raise UnmetPrereq('command failed: ' + self.prereq)
 
     def is_file_matching(self, path, file):
+        #pprint(self.__dict__)
+        print(path)
+        print(file)
         if self._not_files_path_fn and self._not_files_path_fn(path):
+            print(self.not_files_path)
+            print(self._not_files_path_fn.__self__)
             return False
         if self._not_files_fn and self._not_files_fn(file):
+            print(self.not_files)
+            print(self._not_files_fn.__self__)
             return False
         if self._files_path_fn and self._files_path_fn(path):
+            print(self.files_path)
+            print(self._files_path_fn.__self__)
             return True
         if self._files_fn and self._files_fn(file):
+            print(self.files)
+            print(self._files_fn.__self__)
             return True
         if not (self.files or self.files_path or self.files_parent):
             return True
+        print('File matches nothing for this check')
         return False
 
     def is_parent_file_matching(self, path):
         if self._not_files_parent_fn and self._not_files_parent_fn(path):
+            print(self.not_files_parent)
+            print(self._not_files_parent_fn.__self__)
             return False
         if self._files_parent_fn and self._files_parent_fn(path):
+            print(self.files_parent)
+            print(self._files_parent_fn.__self__)
             return True
         return False
 
     def is_dir_matching(self, path):
         dir = os.path.split(path)[-1]
         if self._not_dirs_fn and self._not_dirs_fn(dir):
+            print(self._not_dirs_fn.__self__)
             return True
         if self._not_dirs_path_fn and self._not_dirs_path_fn(path):
+            print(self._not_dirs_path_fn.__self__)
             return True
+        print('Dir matches nothing for this check')
         return False
 
     def is_flag_set(self, value):
@@ -497,6 +526,9 @@ def walk(checks, matching_checks, parent, top):
     ignore_checks = {}
     ignore_checks[top] = set()
     for root, dirs, files in os.walk(top):
+        print('root', root)
+        print('dirs', *dirs)
+        print('files', *files)
         if parent:
             del dirs[:]
         else:
@@ -508,24 +540,34 @@ def walk(checks, matching_checks, parent, top):
                     continue
                 if check.is_dir_matching(root):
                     ignore_checks[root].add(name)
+        print(root,'ignoring', ignore_checks[root])
         for file in files:
             path = os.path.join(root, file)
+            print('checking', path)
             st = os.lstat(path)
             if not stat.S_ISREG(st.st_mode):
+                print('not a file', path)
                 continue
             for name, check in checks.items():
                 if check.disabled:
+                    print('check', name, 'disabled')
                     continue
                 if name in ignore_checks[root]:
+                    print('check', name, 'ignored')
                     continue
                 if name in matching_checks:
+                    print('check', name, 'already matched')
                     continue
                 if parent:
                     if check.is_parent_file_matching(path):
+                        print('check', name, 'matches parent', path)
                         matching_checks.add(name)
                 else:
                     if check.is_file_matching(path, file):
+                        print('check', name, 'matches file', path)
+                        pprint(check.__dict__)
                         matching_checks.add(name)
+    pprint(ignore_checks)
 
 
 def main():
@@ -601,8 +643,11 @@ def main():
         options.jobs = multiprocessing.cpu_count()
     last_interrupt = 0
     matching_checks = set()
+    print('----------------------------------------------------------------------------------------')
     walk(checks, matching_checks, True, '..')
+    print('----------------------------------------------------------------------------------------')
     walk(checks, matching_checks, False, '.')
+    print('----------------------------------------------------------------------------------------')
     for name, check in sorted(checks.items()):
         next = False
         if name not in matching_checks:
