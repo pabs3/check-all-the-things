@@ -581,6 +581,10 @@ class Check(object):
 class Formatter(argparse.ArgumentDefaultsHelpFormatter):
     pass
 
+def pprint(name, values):
+    if isinstance(values, set):
+        values = sorted(values)
+    return name+'('+' '.join([str(value) for value in values])+')'
 
 def process_args(self, action, args):
     if args:
@@ -599,6 +603,7 @@ def process(self, choices):
         raise argparse.ArgumentError(self, self.missing_msg)
     end = len(choices)-1
     for i, choice in enumerate(choices):
+        print('processing choice %s:' % i, choice)
         arg = None
         if choice.startswith('='):
             new_action = self.change
@@ -620,12 +625,14 @@ def process(self, choices):
             args.update(arg)
         if i > 0 and i < end:
             if new_action:
+                print('middle', pprint(action.__name__, args), '=>', new_action.__name__)
                 process_args(self, action, args)
                 action = new_action
                 args = set()
             args.update(arg)
         if i == end:
             args.update(arg)
+            print('end', pprint(action.__name__, args))
             process_args(self, action, args)
 
 
@@ -669,16 +676,20 @@ class FlagSelectionAction(argparse.Action):
         self.checks = checks
         self.flags = flags
         self.all = all
+        self.sets = dict([(flag, set()) for flag in all])
         self.disabled = disable
         self.prepend_values = prepend_values
         super().__init__(option_strings=option_strings, dest=dest, *args, **kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
+        bad = set(self.disabled.keys())
+        print(pprint('bad', bad), pprint('want', values))
         for value in self.prepend_values + values:
             process(self, value.split())
 
     def change(self, flags):
         self.flags.__init__(flags)
+        print(pprint('change', flags))
         bad = set(self.disabled.keys())
         want_all = flags
         want_bad = flags & bad
@@ -688,22 +699,33 @@ class FlagSelectionAction(argparse.Action):
             check_enable = check_disable = False
             if want_good & checkf:
                 if bad & checkf & want_bad:
+                    decision = 'bad & checkf & want_bad'
                     check_enable = True
                 elif not(checkf & bad):
+                    decision = 'not(checkf & bad)'
                     check_enable = True
                 else:
+                    decision = 'want_good & checkf but nothing else'
                     check_disable = True
             elif want_all <= bad and want_all & checkf:
+                decision = 'want_all <= bad and want_all & checkf'
                 check_enable = True
             else:
+                decision = 'nothing else'
                 check_disable = True
             if check_enable:
+                result = 'enable'
                 self.checks[name].disabled.clear()
             elif check_disable:
+                result = 'disable'
                 self.checks[name].disabled.add(self.msg)
+            else:
+                result = 'nothing'
+            print(pprint(name, checkf), '=', pprint(result, [decision]))
 
     def enable(self, flags):
         self.flags.update(flags)
+        print(pprint('enable', flags))
         bad = set(self.disabled.keys())
         want_all = flags
         want_bad = flags & bad
@@ -713,16 +735,28 @@ class FlagSelectionAction(argparse.Action):
             check_enable = False
             if want_good & checkf:
                 if bad & checkf & want_bad:
+                    decision = 'bad & checkf & want_bad'
                     check_enable = True
                 elif not(checkf & bad):
+                    decision = 'not(checkf & bad)'
                     check_enable = True
+                else:
+                    decision = None
             elif want_all <= bad and want_all & checkf:
+                decision = 'want_all <= bad and want_all & checkf'
                 check_enable = True
+            else:
+                decision = None
             if check_enable:
+                result = 'enable'
                 self.checks[name].disabled.clear()
+            else:
+                result = 'nothing'
+            print(pprint(name, checkf), '=', pprint(result, [decision]))
 
     def disable(self, flags):
         self.flags.difference_update(flags)
+        print(pprint('disable', flags))
         bad = set(self.disabled.keys())
         want_all = flags
         want_bad = flags & bad
@@ -731,9 +765,17 @@ class FlagSelectionAction(argparse.Action):
             checkf = check.flags
             check_disable = False
             if want_good & checkf:
+                decision = 'want_good & checkf'
                 check_disable = True
+            else:
+                decision = None
             if check_disable:
+                result = 'disable'
                 self.checks[name].disabled.add(self.msg)
+            else:
+                result = 'nothing'
+            print(pprint(name, checkf), '=', pprint(result, [decision]))
+        print(self.checks['duck'].disabled)
 
 
 class RangeCompleter(object):
@@ -815,6 +857,7 @@ def set_debian_substvars(checks):
 
 
 def walk(typedb, checks, remarks, matching_checks, parent, top):
+    print(typedb, checks.keys(), remarks, matching_checks, parent, top)
     ignore_checks = {}
     ignore_checks[top] = set()
     ignore_dirs = set('.git .svn .bzr CVS .hg _darcs _FOSSIL_ .sgdrawer .pc'.split())
@@ -844,8 +887,6 @@ def walk(typedb, checks, remarks, matching_checks, parent, top):
                 not_checked = '*' + ext
             matching_checks_this_file = False
             for name, check in checks.items():
-                if check.disabled:
-                    continue
                 if name in ignore_checks[root]:
                     continue
                 if name in matching_checks:
@@ -854,7 +895,9 @@ def walk(typedb, checks, remarks, matching_checks, parent, top):
                     if check.is_parent_file_matching(path):
                         matching_checks.add(name)
                 else:
+                    print(name, check.files, path, file)
                     if check.is_file_matching(path, file):
+                        print('matches')
                         matching_checks.add(name)
                         if not check.is_always_matching() and not check.is_flag_set('todo'):
                             matching_checks_this_file = True
@@ -866,6 +909,8 @@ def walk(typedb, checks, remarks, matching_checks, parent, top):
                                 matching_checks.add(name)
                                 if not check.is_always_matching() and not check.is_flag_set('todo'):
                                     matching_checks_this_file = True
+                    else:
+                        print('not matches')
             if not (parent or matching_checks_this_file or root_set.intersection(ignore_dirs)):
                 remark(remarks, not_checked, 'no specific checks')
 
@@ -986,6 +1031,7 @@ def main():
         sys.exit(1)
 
     options = ap.parse_args()
+    sys.exit(1)
     if options.distro and options.release:
         parse_conf(checks, flags, options.distro, options.release)
     if options.set_debian_substvars:
