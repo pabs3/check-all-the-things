@@ -1305,6 +1305,14 @@ def main():
     ap.add_argument('--install', type=str,
                     help="install missing check commands via a package manager",
                     nargs='?', default=None, const='auto', choices=['auto', 'debian'])
+    ap.add_argument('--verbose', nargs=0,
+                    help="Set various options to more verbose:"
+                         " enable MIME checking, run commands, show silent checks,"
+                         " do not truncate check output, print all remarks",
+                    type=str, default=argparse.SUPPRESS, dest=argparse.SUPPRESS,
+                    action=SetOptionsAction,
+                    mime=True, commands='run', silent_checks='show',
+                    checks_output_lines=0, remarks_lines=-1)
     ap.set_defaults(mime=False)
     if argcomplete:
         argcomplete.autocomplete(ap)
