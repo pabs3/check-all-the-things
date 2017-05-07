@@ -455,6 +455,8 @@ class Check(object):
         # https://bugs.debian.org/588017
         if self.is_flag_set('perl-inc-cwd-bug'):
             cmd = 'env PERL5OPT=-m-lib=. ' + cmd
+        if strace:
+            cmd = 'strace -ff -o strace ' + cmd
         if self.cmd_nargs > 0:
             fcmd = ['find']
             any = self.not_files or self.not_files_path or self.files or self.files_path
@@ -1167,7 +1169,7 @@ def main():
                     type=int, default=1).completer = RangeCompleter(-1, 20)
     ap.add_argument('--commands', type=str,
                     help="what to do with the commands for the chosen set of hooks",
-                    default='run', choices=['run', 'show'])
+                    default='run', choices=['run', 'show', 'strace'])
     ap.add_argument("--set-debian-substvars", help=argparse.SUPPRESS, action="store_true")
     ap.add_argument('--spawn-method', type=str, help=argparse.SUPPRESS,
                     default='auto', choices=['auto', 'none', 'pipe', 'pty', 'ptyprocess'])
@@ -1209,7 +1211,8 @@ def main():
     if options.jobs is None:
         options.jobs = multiprocessing.cpu_count()
     jobs = options.jobs
-    run = options.commands == 'run'
+    run = options.commands in {'run', 'strace'}
+    strace = options.commands == 'strace'
     hide = options.silent_checks == 'hide'
     limit = options.checks_output_lines
     mime = options.mime
