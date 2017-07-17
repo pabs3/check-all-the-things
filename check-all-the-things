@@ -1110,6 +1110,11 @@ def walk(typedb, checks, remarks, matching_checks, parent, top):
             type = None
             path = os.path.join(root, file)
             st = os.lstat(path)
+            if stat.S_ISLNK(st.st_mode):
+                target = os.path.realpath(path)
+                if not target.startswith(os.path.join(os.path.realpath(top),'')):
+                    print('ERROR: unsafe symlink found:', path, '->', os.readlink(path), file=sys.stderr)
+                    sys.exit(1)
             if not stat.S_ISREG(st.st_mode):
                 continue
             base, ext = os.path.splitext(file)
