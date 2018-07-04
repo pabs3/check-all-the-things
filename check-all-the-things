@@ -40,6 +40,118 @@ import string
 import sys
 from textwrap import TextWrapper
 
+import functools
+import inspect
+import logging
+import sys
+import types
+
+TRACE = 5
+logging.addLevelName(TRACE, "TRACE")
+logging.basicConfig(format='%(levelname)s: %(message)s', level=TRACE)
+
+def _trace(self, msg, *args, **kwargs):
+    if self.isEnabledFor(TRACE):
+        self._log(TRACE, msg, args, **kwargs)
+
+logging.Logger.trace = _trace
+
+
+def get_logger(func, cls=None):
+    logger_name = "%s.%s" % (
+        func.__module__,
+        func.__qualname__ if cls is None else
+        "%s.%s" % (
+            cls.__qualname__,
+            func.__qualname__))
+    return logging.getLogger(logger_name)
+
+
+def trace(func, cls=None):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        old_record_factory = logging.getLogRecordFactory()
+
+        code = inspect.unwrap(func).__code__
+        pathname = code.co_filename
+        funcname = func.__name__
+
+        def create_record_factory(lineno):
+            def record_factory(*args, **kwargs):
+                record = old_record_factory(*args, **kwargs)
+                record.lineno = lineno
+                record.pathname = pathname
+                record.funcName = funcname
+                return record
+            return record_factory
+
+        logger = get_logger(func, cls)
+
+        exception_line = None
+        return_line = None
+
+        def call_tracer(frame, event, arg):
+            if event == 'call' and frame.f_code == code:
+                return exit_tracer
+
+        def exit_tracer(frame, event, arg):
+            nonlocal exception_line, return_line
+
+            if event == 'return':
+                return_line = frame.f_lineno
+            elif event == 'exception':
+                exception_line = frame.f_lineno
+            return exit_tracer
+
+        def trace_wrapper(msg, lineno):
+            logging.setLogRecordFactory(create_record_factory(lineno))
+            logger.trace(msg)
+            logging.setLogRecordFactory(old_record_factory)
+
+        signature = inspect.signature(func)
+        bound_args = signature.bind(*args, **kwargs)
+
+        trace_wrapper(
+            ">>> %s(%s)" % (
+                func.__name__,
+                ", ".join(
+                    "%s=%r" % item
+                    for item in bound_args.arguments.items())),
+            code.co_firstlineno)
+
+        old_tracer = sys.gettrace()
+        try:
+            sys.settrace(call_tracer)
+            result = func(*args, **kwargs)
+            trace_wrapper(
+                "<<< %s returns %r" % (func.__name__, result),
+                return_line)
+            return result
+        except Exception as exc:
+            trace_wrapper(
+                "<<< %s raises %r in line %d" % (
+                    func.__name__, exc, exception_line),
+                return_line)
+            raise
+        finally:
+            sys.settrace(old_tracer)
+    return wrapper
+
+
+class LoggingMeta(type):
+
+    def __init__(cls, cls_name, bases, cls_dict, **kwargs):
+        super().__init__(cls_name, bases, cls_dict, **kwargs)
+        for attr_name, attr_value in cls.__dict__.items():
+            if isinstance(attr_value, classmethod):
+                setattr(cls, attr_name, classmethod(
+                    trace(attr_value.__func__)))
+            elif isinstance(attr_value, staticmethod):
+                setattr(cls, attr_name, staticmethod(
+                    trace(attr_value.__func__)))
+            elif isinstance(attr_value, types.FunctionType):
+                setattr(cls, attr_name, trace(attr_value))
+
 try:
     from shutil import get_terminal_size
 
@@ -421,6 +533,7 @@ class Check(object):
     def set_comment(self, value):
         self.comment = value.strip()
 
+    @trace
     def set_command(self, value):
         self.cmd = cmd = value.strip()
         fields = {
@@ -843,9 +956,19 @@ def parse_conf(checks={}, flags=set(), distro=None, release=None):
             parse_file(checks, flags, path)
     return (checks, flags)
 
+class OrderedDict_debug(collections.OrderedDict):
+    @trace
+    def __setitem__(self, key, value):
+        if key in self:
+            print('before type_self_key=%s self_key=%s' % (type(self[key]), self[key]))
+        else:
+            print('before nothing')
+        print('setitem key=%s type_value=%s value=%s' % (key, type(value), value))
+        super().__setitem__(key, value)
+        print('result type_self_key=%s self_key=%s' % (type(self[key]), self[key]))
 
 def parse_file(checks, flags, path, overlay=False):
-    cp = configparser.ConfigParser(interpolation=None)
+    cp = configparser.ConfigParser(interpolation=None, strict=True, dict_type=OrderedDict_debug)
     cp.read(path, encoding='UTF-8')
     for name in cp.sections():
         section = cp[name]
