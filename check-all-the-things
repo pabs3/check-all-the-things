@@ -25,6 +25,7 @@
 import argparse
 import collections
 import configparser
+import yaml
 import fnmatch
 import glob
 import multiprocessing
@@ -96,11 +97,12 @@ except ImportError:
 this = os.path.realpath(__file__)
 rootdir = os.path.dirname(this)
 datadir = os.environ.get('CATS_DATA')
-dataglob = '*.ini'
+inidataglob = '*.ini'
+yamldataglob = '*.yaml'
 if not datadir or not os.path.isdir(datadir):
     datadir = os.path.join(rootdir, 'data')
 else:
-    dataglob = '*'
+    inidataglob = '*'
 if not datadir or not os.path.isdir(datadir):
     datadir = os.path.join(os.path.dirname(rootdir), 'share',
                            'check-all-the-things', 'data')
@@ -794,18 +796,31 @@ def parse_section(section, check=None):
 
 def parse_conf(checks={}, flags=set(), distro=None, release=None):
     if distro and release:
-        for path in glob.glob(os.path.join(datadir, 'overlay', distro, release, dataglob)):
-            parse_file(checks, flags, path, True)
+        for path in glob.glob(os.path.join(datadir, 'overlay', distro, release, inidataglob)):
+            parse_ini_file(checks, flags, path, True)
+        for path in glob.glob(os.path.join(datadir, 'overlay', distro, release, yamldataglob)):
+            parse_yaml_file(checks, flags, path, True)
     else:
-        for path in glob.glob(os.path.join(datadir, dataglob)):
-            parse_file(checks, flags, path)
+        for path in glob.glob(os.path.join(datadir, inidataglob)):
+            parse_ini_file(checks, flags, path)
+        for path in glob.glob(os.path.join(datadir, yamldataglob)):
+            parse_yaml_file(checks, flags, path)
     return (checks, flags)
 
 
-def parse_file(checks, flags, path, overlay=False):
+def parse_ini_file(checks, flags, path, overlay=False):
     cp = configparser.ConfigParser(interpolation=None)
     cp.read(path, encoding='UTF-8')
-    for name in cp.sections():
+    return parse_sections(cp.sections())
+
+
+def parse_yaml_file(checks, flags, path, overlay=False):
+    yaml.
+    return parse_sections(cp.sections())
+
+
+def parse_sections(sections)
+    for name in :
         section = cp[name]
         if name in checks:
             if overlay:
