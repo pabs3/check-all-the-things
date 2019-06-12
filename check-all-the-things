@@ -1001,6 +1001,7 @@ def install_apt(matching_checks, checks, get_deps, ignore_check):
         # apt 1.4~beta3 allows the default APT::Build-Essential to be overridden
         # apt 1.4~beta3~bpo could be in someone's local backports
         if apt_pkg.version_compare(version, '1.4~beta3~') >= 0:
+            # FIXME: add support for apt satisfy from 1.9.0
             from tempfile import NamedTemporaryFile as tmp
             with tmp(mode='w', prefix='check-all-the-things-install-', suffix='.dsc') as dsc:
                 print(build_deps, file=dsc)
