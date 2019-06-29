@@ -964,6 +964,11 @@ def root_cmd(cmd):
     else:
         return None
 
+class install_apt_build_dep(object):
+    
+
+class install_apt_satisfy(object):
+    
 
 def install_apt(matching_checks, checks, get_deps, ignore_check):
     if os.geteuid() == 0:
@@ -992,7 +997,7 @@ def install_apt(matching_checks, checks, get_deps, ignore_check):
     deps = ', '.join(sorted(check_deps))
     build_deps = 'Build-Depends: ' + deps
     if which('apt'):
-        version = ipc.check_output('apt-get --version'.split()).split()[1]
+        version = ipc.check_output('apt --version'.split()).split()[1]
         # apt 0.5.5 added the APT::Build-Essential option
         # apt 0.9.14.3~exp3 added the apt command
         # apt 1.0 installed the apt command by default
@@ -1000,8 +1005,14 @@ def install_apt(matching_checks, checks, get_deps, ignore_check):
         # apt 1.2.2 switched to using the normal resolver for build-deps
         # apt 1.4~beta3 allows the default APT::Build-Essential to be overridden
         # apt 1.4~beta3~bpo could be in someone's local backports
-        if apt_pkg.version_compare(version, '1.4~beta3~') >= 0:
-            # FIXME: add support for apt satisfy from 1.9.0
+        # apt 1.9.0 added support for apt satisfy
+        # apt 1.9.0 could be in someone's local backports
+        if apt_pkg.version_compare(version, '1.9.0~') >= 0:
+            cmd = 'apt satisfy'.split()
+            cmd.append(deps)
+            cmd = root_cmd(cmd)
+            print('$', *[shlex.quote(arg) for arg in cmd])
+        elif apt_pkg.version_compare(version, '1.4~beta3~') >= 0:
             from tempfile import NamedTemporaryFile as tmp
             with tmp(mode='w', prefix='check-all-the-things-install-', suffix='.dsc') as dsc:
                 print(build_deps, file=dsc)
@@ -1019,6 +1030,7 @@ def install_apt(matching_checks, checks, get_deps, ignore_check):
                 if cmd is None:
                     print('ERROR: tools for gaining root are not available', file=sys.stderr)
                     return 1
+        if cmd:
                 print('Installing missing commands for checks:', *missing)
                 print('Installing packages:', deps)
                 print('$', 'echo', shlex.quote(build_deps), '>', fake_dsc)
