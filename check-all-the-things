@@ -1286,6 +1286,9 @@ def main():
                     help="install missing check commands via a package manager",
                     nargs='?', default=None, const='auto', choices=['auto', 'debian'])
     ap.set_defaults(mime=False)
+    ap.add_argument('--overlay', '-o', type=str,
+                    help="enable check overlay",
+                    default=None, choices=['debian/jessie'])
     if argcomplete:
         argcomplete.autocomplete(ap)
     elif '_ARGCOMPLETE' in os.environ:

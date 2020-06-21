@@ -1,3 +1,5 @@
+Make it useful for DDs with little time
+
 Things found on
 <https://wiki.debian.org/HowToPackageForDebian#Check_points_for_any_package>
 but not included here yet::
@@ -54,7 +56,32 @@ https://github.com/cmeissner/puppet-git-hooks
 https://github.com/anchor/git-vogue
 https://wiki.sei.cmu.edu/confluence/display/c/SEI+CERT+C+Coding+Standard
 
+Digest this document and come up with some tests:
+
+http://www.dwheeler.com/essays/fixing-unix-linux-filenames.html
+
+Things that need defining:
+
+   ruby-yaml-parser
+   js-yaml
+   xml-entity-crap
+   json-eval
+
+Suggest some tools:
+
+http://s2e.epfl.ch/
+https://klee.github.io/
+
+One option for printing all the checks
+
 A mechanisms for filtering output is needed.
+
+Add descriptions
+
+Add a suggestion to run manual/interactive tools:
+
+https://cseweb.ucsd.edu/~jvoung/race/
+https://github.com/OpenRCE/sulley
 
 Only inform about a skipped check if there were actually matching files.
 
@@ -78,4 +105,45 @@ Check if any tests contain dangerous commands:
 python -m
 python -c
 
+configuration file
+
+A way to print available checks and flags
+
+make the fields multivalued
+
+check for URLs
+
+Blockers for uploading to Debian unstable:
+
+Define which stage of the build each check runs from.
+
+Add an option to control the verbosity of various commands.
+
+Add options for disabling checks based on load etc.
+
+Add support for passing the post-build commands into sbuild/pbuilder.
+
+- list checks
+- false-positives
+- output verbosity
+- ftpmasters checks??
+
+Maybe suggest interactive helpers
+
+- syntastic (vim plugin)
+- develock-el (emacs minor mode, e.g. for highlighting overlong code lines, tabs vs spaces, etc.)
+- emacs-goodies-el (many small helpers that highlight common issues)
+
+Suggest other linters with no command-line interface:
+
+elpa-package-lint
+
 .. vim:ts=3 sw=3 et ft=rst
+
+Allow detecting file types by interpreter string
+
+Add an easter egg that prints some cats
+
+verbosity levels:
+	fix Ctrl+C
+	add a remark if output came from a non-last item

@@ -1,0 +1,4 @@
+#!/usr/bin/python3
+from debian import changelog as c
+with open('debian/changelog') as f:
+	c.Changelog(f)
